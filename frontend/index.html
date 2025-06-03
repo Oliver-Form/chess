@@ -23,8 +23,21 @@
                 height: calc(100vh / 18);
             }
             .chess-board .light { background: #eee; }
-            .chess-board .dark { background: #574e4e; }
+            .chess-board .dark { background: #964B00; }
             .chess-board img { width: 100%; height: 100%; display: block; }
+
+            /* make each cell a positioning context */
+            .chess-board td { position: relative; }
+
+            /* overlay circle */
+            .highlight {
+              position: absolute;
+              top: 0; left: 0;
+              width: 100%; height: 100%;
+              border-radius: 50%;
+              background: rgba(128, 128, 128, 0.651);
+              pointer-events: none;
+            }
         </style>
     </head>
     <body>
@@ -135,13 +148,24 @@
     const ws = new WebSocket('ws://127.0.0.1:8080/ws');
     const files = ['a','b','c','d','e','f','g','h'];
     ws.onmessage = (event) => {
-      const state = JSON.parse(event.data);
+      let data;
+      try {
+        data = JSON.parse(event.data);
+      } catch (e) {
+        console.error('Failed to parse WS message:', event.data, e);
+        return;
+      }
+      if (Array.isArray(data)) {
+        highlightPositions(data);
+        return;
+      }
+      const state = data;
       const board = state.board;
       const cells = document.querySelectorAll('.chess-board td');
       cells.forEach(cell => { cell.innerHTML = ''; });
       board.forEach((sq, i) => {
         if (sq) {
-          const row = Math.floor(i/8);
+          const row = Math.floor(i / 8);
           const col = i % 8;
           const targetIndex = (7 - row) * 8 + col;
           const cell = cells[targetIndex];
@@ -155,6 +179,36 @@
         }
       });
     };
+
+    function highlightPositions(positions) {
+      const cells = document.querySelectorAll('.chess-board td');
+      cells.forEach(cell => {
+        const old = cell.querySelector('.highlight');
+        if (old) old.remove();
+      });
+      positions.forEach(i => {
+        const row = Math.floor(i / 8);
+        const col = i % 8;
+        const target = (7 - row) * 8 + col;
+        const cell = cells[target];
+        if (!cell) return;
+        const mark = document.createElement('div');
+        mark.className = 'highlight';
+        cell.appendChild(mark);
+      });
+    }
+
+    // send square index when clicked
+    const cells = document.querySelectorAll('.chess-board td');
+    cells.forEach((cell, idx) => {
+      cell.addEventListener('click', () => {
+        const rowDom = Math.floor(idx / 8);
+        const colDom = idx % 8;
+        const squareIndex = (7 - rowDom) * 8 + colDom;
+        ws.send(squareIndex.toString());
+      });
+    });
   </script>
     </body>
 </html>
+

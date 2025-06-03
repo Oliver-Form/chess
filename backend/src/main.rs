@@ -9,7 +9,7 @@ use warp::fs::File;
 use std::convert::Infallible;
 
 mod game;
-use game::{GameState, Move};
+use game::{GameState, Move, legal_moves_for_piece_strict};
 use serde_json;
 
 #[tokio::main]
@@ -60,8 +60,27 @@ async fn handle_connection(
             }
         }
     });
-    // ignore incoming messages for now
-    while let Some(_msg) = ws_receiver.next().await {
-        
+    // handle incoming messages and print/broadcast received square indices
+    while let Some(Ok(msg)) = ws_receiver.next().await {
+        if msg.is_text() {
+            if let Ok(text) = msg.to_str() {
+                if let Ok(idx) = text.parse::<u8>() {
+                    println!("Received square index: {}", idx);
+                    // compute and broadcast legal move targets for the clicked square
+                    let positions = {
+                        let gs = game_state.lock().unwrap();
+                        legal_moves_for_piece_strict(&gs, idx)
+                    };
+                    // debug: print all available legal moves
+                    println!("Legal moves from {}: {:?}", idx, positions);
+                     let json = serde_json::to_string(&positions)
+                        .expect("Failed to serialize positions");
+                     tx.lock().unwrap()
+                        .send(json)
+                        .expect("Failed to broadcast positions");
+                } else {
+                    eprintln!("Failed to parse index from text: {}", text);                }
+            }
+        }
     }
 }

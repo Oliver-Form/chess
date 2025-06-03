@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title></title>
+        <meta charset="UTF-8">
+        <style>
+            body {
+                display: flex;
+                justify-content: center;
+                align-items: stretch;
+                height: 100vh;
+                margin: 0;
+            }
+            .chess-board {
+                border-spacing: 0;
+                border-collapse: collapse;
+                height: 50%;
+            }
+            .chess-board th,
+            .chess-board td {
+                border: 1px solid;
+                width: calc(100vh / 18);
+                height: calc(100vh / 18);
+            }
+            .chess-board .light { background: #eee; }
+            .chess-board .dark { background: #574e4e; }
+            .chess-board img { width: 100%; height: 100%; display: block; }
+        </style>
+    </head>
+    <body>
+        <table class="chess-board">
+            <tbody>
+                <tr>
+                    <th></th>
+                    <th>a</th>
+                    <th>b</th>
+                    <th>c</th>
+                    <th>d</th>
+                    <th>e</th>
+                    <th>f</th>
+                    <th>g</th>
+                    <th>h</th>
+                </tr>
+                <tr>
+                    <th>8</th>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                </tr>
+                <tr>
+                    <th>7</th>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                </tr>
+                <tr>
+                    <th>6</th>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                </tr>
+                <tr>
+                    <th>5</th>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                </tr>
+                <tr>
+                    <th>4</th>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                </tr>
+                <tr>
+                    <th>3</th>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                </tr>
+                <tr>
+                    <th>2</th>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                </tr>
+                <tr>
+                    <th>1</th>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                    <td class="dark"></td>
+                    <td class="light"></td>
+                </tr>
+            </tbody>
+        </table>
+        <script>
+    const ws = new WebSocket('ws://127.0.0.1:8080/ws');
+    const files = ['a','b','c','d','e','f','g','h'];
+    ws.onmessage = (event) => {
+      const state = JSON.parse(event.data);
+      const board = state.board;
+      const cells = document.querySelectorAll('.chess-board td');
+      cells.forEach(cell => { cell.innerHTML = ''; });
+      board.forEach((sq, i) => {
+        if (sq) {
+          const row = Math.floor(i/8);
+          const col = i % 8;
+          const targetIndex = (7 - row) * 8 + col;
+          const cell = cells[targetIndex];
+          const img = document.createElement('img');
+          const color = sq.color.toLowerCase();
+          const type = sq.piece_type.toLowerCase();
+          const filename = `${color}_${type}.png`;
+          console.log('Loading piece sprite:', filename);
+          img.src = `../static/${filename}`;
+          cell.appendChild(img);
+        }
+      });
+    };
+  </script>
+    </body>
+</html>

@@ -21,7 +21,7 @@ pub struct Piece {
 }
 
 pub type Square = Option<Piece>;
-pub type Board = [Square; 64];
+pub type Board = Vec<Square>;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Move {
@@ -53,7 +53,7 @@ pub struct CastlingRights {
 // ------- Initialisation -------
 
 pub fn starting_board() -> Board {
-    let mut board: Board = [None; 64];
+    let mut board: Board = vec![None; 64];
     
     let back_rank = [
         PieceType::Rook,

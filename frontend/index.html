@@ -41,6 +41,14 @@
         </style>
     </head>
     <body>
+      <div style="position: absolute; top: 10px; left: 10px; z-index: 10;">
+        <!-- Display the current game code -->
+        <div id="game-code-display" style="margin-bottom: 5px; font-weight: bold;">Game Code: <span id="game-code-value">—</span></div>
+        <label for="game-code-input">Game code:</label>
+        <input type="text" id="game-code-input" name="game-code" placeholder="Enter game code">
+        <button id="join-game-btn">Join</button>
+      </div>
+    <body>
         <table class="chess-board">
             <tbody>
                 <tr>
@@ -145,6 +153,12 @@
             </tbody>
         </table>
         <script>
+
+    function sendInstruction(instructionType, properties = {}) {
+      const message = { instruction_type: instructionType, ...properties };
+      ws.send(JSON.stringify(message));
+    }
+
     const ws = new WebSocket('ws://127.0.0.1:8080/ws');
     const files = ['a','b','c','d','e','f','g','h'];
     ws.onmessage = (event) => {
@@ -155,15 +169,22 @@
         console.error('Failed to parse WS message:', event.data, e);
         return;
       }
+      // highlight array-of-positions messages
       if (Array.isArray(data)) {
         highlightPositions(data);
         return;
       }
+      // handle full game state messages
       const state = data;
-      const board = state.board;
-      const cells = document.querySelectorAll('.chess-board td');
-      cells.forEach(cell => { cell.innerHTML = ''; });
-      board.forEach((sq, i) => {
+      // update displayed game code if provided
+      if (state.game_code !== undefined) {
+        const displayEl = document.getElementById('game-code-value');
+        if (displayEl) displayEl.textContent = state.game_code || '—';
+      }
+       const board = state.board;
+       const cells = document.querySelectorAll('.chess-board td');
+       cells.forEach(cell => { cell.innerHTML = ''; });
+       board.forEach((sq, i) => {
         if (sq) {
           const row = Math.floor(i / 8);
           const col = i % 8;
@@ -205,7 +226,13 @@
         const rowDom = Math.floor(idx / 8);
         const colDom = idx % 8;
         const squareIndex = (7 - rowDom) * 8 + colDom;
-        ws.send(squareIndex.toString());
+        if (cell.querySelector('.highlight')) {
+          // perform move to highlighted destination
+          sendInstruction('request_move', { destination: squareIndex.toString() });
+        } else {
+          // select piece and request legal moves
+          sendInstruction('get_legal_moves', { square_clicked: squareIndex.toString() });
+        }
       });
     });
   </script>

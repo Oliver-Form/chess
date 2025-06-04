@@ -1,3 +1,5 @@
+use rand::{thread_rng, Rng};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum PieceType { 
     Pawn,
@@ -40,6 +42,7 @@ pub struct GameState {
     en_passant_square: Option<u8>,
     halfmove_clock: u32, 
     fullmove_clock: u32,
+    game_code: String,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -307,7 +310,22 @@ impl GameState {
             en_passant_square: None,
             halfmove_clock: 0,
             fullmove_clock: 1,
+            game_code: {
+                let mut rng = thread_rng();
+                format!("{:06}", rng.gen_range(0..1_000_000))
+            },
         }
+    }
+    /// Returns the game code identifier
+    pub fn game_code(&self) -> &str {
+        &self.game_code
+    }
+    /// Moves a piece from one square to another, without validation
+    pub fn move_piece(&mut self, from: u8, to: u8) {
+        let from_idx = from as usize;
+        let to_idx = to as usize;
+        self.board[to_idx] = self.board[from_idx];
+        self.board[from_idx] = None;
     }
 }
 

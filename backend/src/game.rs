@@ -320,12 +320,50 @@ impl GameState {
     pub fn game_code(&self) -> &str {
         &self.game_code
     }
-    /// Moves a piece from one square to another, without validation
+    /// Moves a piece from one square to another, without validation, then switches turn
     pub fn move_piece(&mut self, from: u8, to: u8) {
         let from_idx = from as usize;
         let to_idx = to as usize;
         self.board[to_idx] = self.board[from_idx];
         self.board[from_idx] = None;
+        // switch current player's turn
+        self.turn = opposite_color(self.turn);
+    }
+    /// Returns the color of the piece at a given board index, or None if empty
+    pub fn piece_color_at(&self, idx: usize) -> Option<Color> {
+        self.board.get(idx).and_then(|&sq| sq.map(|piece| piece.color))
+    }
+
+    /// Returns true if the current player is in check (their king is attacked)
+    pub fn is_in_check(&self) -> bool {
+        // find king position for current turn
+        let king_pos = self.board.iter().position(|&sq| {
+            matches!(sq, Some(ref p) if p.piece_type == PieceType::King && p.color == self.turn)
+        });
+        if let Some(idx) = king_pos {
+            is_square_attacked(self, idx as u8, opposite_color(self.turn))
+        } else {
+            false
+        }
+    }
+
+    /// Returns true if the current player is checkmated
+    pub fn is_checkmate(&self) -> bool {
+        // must be in check and have no legal moves
+        if !self.is_in_check() {
+            return false;
+        }
+        // search for any legal move for current player
+        for idx in 0..64u8 {
+            if let Some(piece) = self.board[idx as usize] {
+                if piece.color == self.turn {
+                    if !legal_moves_for_piece_strict(self, idx).is_empty() {
+                        return false;
+                    }
+                }
+            }
+        }
+        true
     }
 }
 

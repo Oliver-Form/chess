@@ -10,8 +10,9 @@ use futures_util::stream::SplitSink;
 use warp::ws::{Message as WsMessage, WebSocket};
 
 mod game;
-use game::{GameState, legal_moves_for_piece_strict};
+use game::{GameState, legal_moves_for_piece_strict, Color};
 use serde_json;
+use serde_json::json;
 
 type Clients = Arc<TokioMutex<HashMap<usize, Arc<TokioMutex<SplitSink<WebSocket, WsMessage>>>>>>;
 static CLIENT_ID_COUNTER: AtomicUsize = AtomicUsize::new(1);
@@ -26,7 +27,7 @@ async fn main() {
     // Shared game state for all connections
     let game_state = Arc::new(Mutex::new(GameState::new()));
     let game_state_ws = game_state.clone();
-    let clients_ws = clients.clone();
+    let clients_ws = clients.clone();  
     let ws_route = warp::path("ws")
         .and(warp::ws())
         .and(warp::any().map(move || (clients_ws.clone(), tx_ws.clone(), game_state_ws.clone())))
@@ -64,12 +65,33 @@ async fn handle_connection(
         clients_guard.insert(client_id, ws_tx.clone());
     }
     let mut rx = tx.lock().unwrap().subscribe();
+    // determine and send role assignment
+    let role_str = {
+        let clients_guard = clients.lock().await;
+        match clients_guard.len() {
+            1 => "white",
+            2 => "black",
+            _ => "observer",
+        }
+    };
+    let assign_msg = serde_json::to_string(&json!({
+        "instruction_type": "assign_color",
+        "color": role_str
+    })).expect("Failed to serialize assign_color");
+    {
+        let mut sink = ws_tx.lock().await;
+        let _ = sink.send(WsMessage::text(assign_msg)).await;
+    }
     // send initial full game state to this client
     let init_state = {
         let gs = game_state.lock().unwrap();
         // print the current game code for debugging
         println!("Game code: {}", gs.game_code());
-        serde_json::to_string(&*gs).expect("Failed to serialize initial game state")
+        // serialize game state then add check/checkmate flags
+        let mut val = serde_json::to_value(&*gs).expect("Serialize to Value");
+        val["in_check"] = serde_json::Value::Bool(gs.is_in_check());
+        val["is_checkmate"] = serde_json::Value::Bool(gs.is_checkmate());
+        serde_json::to_string(&val).expect("Failed to serialize initial game state")
     };
     tx.lock().unwrap().send(init_state).expect("Failed to broadcast initial game state");
         
@@ -83,6 +105,8 @@ async fn handle_connection(
     });
     // state tracking for pending move
     let mut last_move_from: Option<u8> = None;
+    // server-side role enforcement
+    let my_role = role_str.to_string();
     // handle incoming messages
     while let Some(Ok(msg)) = ws_rx.next().await {
         if msg.is_text() {
@@ -91,11 +115,13 @@ async fn handle_connection(
                     // dispatch based on instruction type
                     match value.get("instruction_type").and_then(|v| v.as_str()) {
                         Some("get_legal_moves") => {
+                            // observers cannot see legal moves
+                            if my_role == "observer" { break; }
                             if let Some(s) = value.get("square_clicked").and_then(|v| v.as_str()) {
                                 if let Ok(idx) = s.parse::<u8>() {
                                     // remember source for next move
                                     last_move_from = Some(idx);
-                                    // compute legal move targets
+                                    // computer legal move targets
                                     let positions = {
                                         let gs = game_state.lock().unwrap();
                                         legal_moves_for_piece_strict(&gs, idx)
@@ -113,21 +139,23 @@ async fn handle_connection(
                                 if let Ok(dest) = dest_s.parse::<u8>() {
                                     if let Some(from) = last_move_from {
                                         // apply the move on game state
+                                        let mut gs = game_state.lock().unwrap();
+                                        if (my_role == "white" && gs.piece_color_at(from as usize) == Some(Color::White))
+                                          || (my_role == "black" && gs.piece_color_at(from as usize) == Some(Color::Black))
                                         {
-                                            let mut gs = game_state.lock().unwrap();
                                             gs.move_piece(from, dest);
+                                            // broadcast updated full state
+                                            // serialize updated state with check/checkmate
+                                            let mut val = serde_json::to_value(&*gs).expect("Serialize to Value");
+                                            val["in_check"] = serde_json::Value::Bool(gs.is_in_check());
+                                            val["is_checkmate"] = serde_json::Value::Bool(gs.is_checkmate());
+                                            let full = serde_json::to_string(&val)
+                                                .expect("Failed to serialize game state");
+                                            tx.lock().unwrap().send(full).unwrap();
+                                            last_move_from = None;
+                                        } else {
+                                            eprintln!("Illegal move by {} on {}", my_role, from);
                                         }
-                                        // broadcast updated full state
-                                        let full = {
-                                            let gs = game_state.lock().unwrap();
-                                            serde_json::to_string(&*gs)
-                                                .expect("Failed to serialize game state")
-                                        };
-                                        tx.lock().unwrap()
-                                            .send(full)
-                                            .expect("Failed to broadcast updated state");
-                                        // clear pending
-                                        last_move_from = None;
                                     } else {
                                         eprintln!("No source square for move");
                                     }
@@ -145,4 +173,5 @@ async fn handle_connection(
         let mut clients_guard = clients.lock().await;
         clients_guard.remove(&client_id);
     }
+
 }

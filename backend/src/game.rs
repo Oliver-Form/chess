@@ -324,6 +324,82 @@ impl GameState {
     pub fn move_piece(&mut self, from: u8, to: u8) {
         let from_idx = from as usize;
         let to_idx = to as usize;
+        // handle castling: king moves two squares
+        if let Some(piece) = self.board[from_idx] {
+            if piece.piece_type == PieceType::King {
+                // kingside
+                if to_idx == from_idx + 2 {
+                    let (rook_from, rook_to) = match piece.color {
+                        Color::White => (7, 5),
+                        Color::Black => (63, 61),
+                    };
+                    self.board[rook_to] = self.board[rook_from];
+                    self.board[rook_from] = None;
+                }
+                // queenside
+                if to_idx + 2 == from_idx {
+                    let (rook_from, rook_to) = match piece.color {
+                        Color::White => (0, 3),
+                        Color::Black => (56, 59),
+                    };
+                    self.board[rook_to] = self.board[rook_from];
+                    self.board[rook_from] = None;
+                }
+                // disable both castling rights for this king
+                match piece.color {
+                    Color::White => {
+                        self.castling_rights.white_kingside = false;
+                        self.castling_rights.white_queenside = false;
+                    }
+                    Color::Black => {
+                        self.castling_rights.black_kingside = false;
+                        self.castling_rights.black_queenside = false;
+                    }
+                }
+            }
+            // if rook moves, disable its castling side
+            if piece.piece_type == PieceType::Rook {
+                match piece.color {
+                    Color::White => {
+                        if from_idx == 0 { self.castling_rights.white_queenside = false; }
+                        if from_idx == 7 { self.castling_rights.white_kingside = false; }
+                    }
+                    Color::Black => {
+                        if from_idx == 56 { self.castling_rights.black_queenside = false; }
+                        if from_idx == 63 { self.castling_rights.black_kingside = false; }
+                    }
+                }
+            }
+        }
+        // handle en passant target and capture
+        if let Some(piece) = self.board[from_idx] {
+            if piece.piece_type == PieceType::Pawn {
+                let row_from = from_idx as i8 / 8;
+                let row_to = to_idx as i8 / 8;
+                // double-step opens en passant
+                if (row_from - row_to).abs() == 2 {
+                    // target square is the square passed over
+                    let between = ((from + to) / 2) as u8;
+                    self.en_passant_square = Some(between);
+                } else {
+                    // normal pawn move or capture
+                    // if moving to en_passant_square, remove captured pawn
+                    if Some(to as u8) == self.en_passant_square {
+                        let cap_idx = if piece.color == Color::White {
+                            to_idx - 8
+                        } else {
+                            to_idx + 8
+                        };
+                        self.board[cap_idx] = None;
+                    }
+                    self.en_passant_square = None;
+                }
+            } else {
+                // any other piece clears en passant availability
+                self.en_passant_square = None;
+            }
+        }
+        // move the piece
         self.board[to_idx] = self.board[from_idx];
         self.board[from_idx] = None;
         // switch current player's turn

@@ -10,7 +10,7 @@ use futures_util::stream::SplitSink;
 use warp::ws::{Message as WsMessage, WebSocket};
 
 mod game;
-use game::{GameState, legal_moves_for_piece_strict, Color};
+use game::{GameState, legal_moves_for_piece_strict, Color, PieceType};
 use serde_json;
 use serde_json::json;
 
@@ -143,7 +143,17 @@ async fn handle_connection(
                                         if (my_role == "white" && gs.piece_color_at(from as usize) == Some(Color::White))
                                           || (my_role == "black" && gs.piece_color_at(from as usize) == Some(Color::Black))
                                         {
-                                            gs.move_piece(from, dest);
+                                            // parse optional promotion piece
+                                            let promotion = value.get("promotion")
+                                                .and_then(|v| v.as_str())
+                                                .and_then(|s| match s {
+                                                    "queen" => Some(PieceType::Queen),
+                                                    "rook" => Some(PieceType::Rook),
+                                                    "bishop" => Some(PieceType::Bishop),
+                                                    "knight" => Some(PieceType::Knight),
+                                                    _ => None,
+                                                });
+                                            gs.move_piece(from, dest, promotion);
                                             // broadcast updated full state
                                             // serialize updated state with check/checkmate
                                             let mut val = serde_json::to_value(&*gs).expect("Serialize to Value");

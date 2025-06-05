@@ -275,7 +275,9 @@
           const fromPiece = currentState.board[lastMoveFrom];
           const isPawn = fromPiece && fromPiece.piece_type === 'Pawn';
           const destRow = Math.floor(squareIndex / 8);
-          const lastRank = (currentState.turn === 'white' ? 7 : 0);
+          // determine promotion rank based on pawn's color, not turn
+          const pawnColor = fromPiece.color.toLowerCase();
+          const lastRank = (pawnColor === 'white' ? 7 : 0);
           if (isPawn && destRow === lastRank) {
             // show promotion choices
             promoModal.dataset.dest = squareIndex;

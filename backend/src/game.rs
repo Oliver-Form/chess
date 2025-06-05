@@ -321,7 +321,7 @@ impl GameState {
         &self.game_code
     }
     /// Moves a piece from one square to another, without validation, then switches turn
-    pub fn move_piece(&mut self, from: u8, to: u8) {
+    pub fn move_piece(&mut self, from: u8, to: u8, promotion: Option<PieceType>) {
         let from_idx = from as usize;
         let to_idx = to as usize;
         // handle castling: king moves two squares
@@ -402,6 +402,18 @@ impl GameState {
         // move the piece
         self.board[to_idx] = self.board[from_idx];
         self.board[from_idx] = None;
+        // handle pawn promotion
+        if let Some(mut piece) = self.board[to_idx] {
+            if piece.piece_type == PieceType::Pawn {
+                let row = (to_idx / 8) as u8;
+                let last_rank = if piece.color == Color::White { 7 } else { 0 };
+                if row == last_rank {
+                    // promote to chosen piece or default Queen
+                    let new_type = promotion.unwrap_or(PieceType::Queen);
+                    self.board[to_idx] = Some(Piece { piece_type: new_type, color: piece.color });
+                }
+            }
+        }
         // switch current player's turn
         self.turn = opposite_color(self.turn);
     }

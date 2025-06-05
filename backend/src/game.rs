@@ -320,6 +320,11 @@ impl GameState {
     pub fn game_code(&self) -> &str {
         &self.game_code
     }
+    /// Returns the current player's turn color
+    pub fn turn(&self) -> Color {
+        self.turn
+    }
+    
     /// Moves a piece from one square to another, without validation, then switches turn
     pub fn move_piece(&mut self, from: u8, to: u8, promotion: Option<PieceType>) {
         let from_idx = from as usize;

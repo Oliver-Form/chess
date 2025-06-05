@@ -19,6 +19,8 @@ static CLIENT_ID_COUNTER: AtomicUsize = AtomicUsize::new(1);
 
 #[tokio::main]
 async fn main() {
+    // check for silent mode to suppress game logs
+    let silent = std::env::args().any(|arg| arg == "--silent");
     // track connected clients
     let clients: Clients = Arc::new(TokioMutex::new(HashMap::new()));
     let (tx, _rx) = broadcast::channel(100);
@@ -28,11 +30,12 @@ async fn main() {
     let game_state = Arc::new(Mutex::new(GameState::new()));
     let game_state_ws = game_state.clone();
     let clients_ws = clients.clone();  
+    let silent_ws = silent;
     let ws_route = warp::path("ws")
         .and(warp::ws())
-        .and(warp::any().map(move || (clients_ws.clone(), tx_ws.clone(), game_state_ws.clone())))
-        .map(|ws: warp::ws::Ws, (clients, tx, game_state)| {
-            ws.on_upgrade(move |socket| handle_connection(socket, clients, tx, game_state))
+        .and(warp::any().map(move || (clients_ws.clone(), tx_ws.clone(), game_state_ws.clone(), silent_ws)))
+        .map(|ws: warp::ws::Ws, (clients, tx, game_state, silent)| {
+            ws.on_upgrade(move |socket| handle_connection(socket, clients, tx, game_state, silent))
         });
     // Static file handler for frontend
     let static_route = warp::path::end()
@@ -53,6 +56,7 @@ async fn handle_connection(
     clients: Clients,
     tx: Arc<Mutex<broadcast::Sender<String>>>,
     game_state: Arc<Mutex<GameState>>,
+    silent: bool,
 ) {
     // split into sink & stream, then store sink for later per-client pushes
     let (ws_tx, mut ws_rx) = ws.split();
@@ -85,8 +89,8 @@ async fn handle_connection(
     // send initial full game state to this client
     let init_state = {
         let gs = game_state.lock().unwrap();
-        // print the current game code for debugging
-        println!("Game code: {}", gs.game_code());
+        // print the current game code for debugging if not silent
+        if !silent { println!("Game code: {}", gs.game_code()); }
         // serialize game state then add check/checkmate flags
         let mut val = serde_json::to_value(&*gs).expect("Serialize to Value");
         val["in_check"] = serde_json::Value::Bool(gs.is_in_check());
@@ -153,7 +157,7 @@ async fn handle_connection(
                                                     "knight" => Some(PieceType::Knight),
                                                     _ => None,
                                                 });
-                                            // log the move
+                                            // logging context
                                             let piece_color_enum = gs.piece_color_at(from as usize).unwrap();
                                             let piece_type_enum = gs.piece_type_at(from as usize).unwrap();
                                             let from_file = (b'a' + (from % 8)) as char;
@@ -162,7 +166,24 @@ async fn handle_connection(
                                             let to_file = (b'a' + (dest % 8)) as char;
                                             let to_rank = (dest / 8 + 1).to_string();
                                             let to_coord = format!("{}{}", to_file.to_ascii_uppercase(), to_rank);
-                                            println!("{:?} {:?} moved from {} to {}", piece_color_enum, piece_type_enum, from_coord, to_coord);
+                                            // log events if not silent
+                                            if !silent {
+                                                println!("{:?} {:?} moved from {} to {}", piece_color_enum, piece_type_enum, from_coord, to_coord);
+                                                // detect and log capture
+                                                let captured_color_opt = gs.piece_color_at(dest as usize);
+                                                let captured_type_opt = gs.piece_type_at(dest as usize);
+                                                if let (Some(captured_color), Some(captured_type)) = (captured_color_opt, captured_type_opt) {
+                                                    println!("{:?} {:?} captured by {:?} {:?}", captured_color, captured_type, piece_color_enum, piece_type_enum);
+                                                }
+                                                // check and checkmate
+                                                if gs.is_in_check() {
+                                                    println!("{:?} in Check", gs.turn());
+                                                }
+                                                if gs.is_checkmate() {
+                                                    println!("{:?} in Checkmate", gs.turn());
+                                                }
+                                            }
+                                            // apply the move
                                             gs.move_piece(from, dest, promotion);
                                             // broadcast updated full state
                                             // serialize updated state with check/checkmate
@@ -195,6 +216,4 @@ async fn handle_connection(
     }
 
 }
- // locking the fuck in and building like a full chess client would be awesome
 
- // run docker container for free

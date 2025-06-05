@@ -559,6 +559,21 @@ impl GameState {
     pub fn is_fifty_move_draw(&self) -> bool {
         self.halfmove_clock >= 100
     }
+
+    /// Returns true if neither side has mating material (only kings, or king+single bishop/knight vs king)
+    pub fn is_insufficient_material(&self) -> bool {
+        let mut minor_count = 0;
+        for sq in &self.board {
+            if let Some(p) = sq {
+                match p.piece_type {
+                    PieceType::Pawn | PieceType::Rook | PieceType::Queen => return false,
+                    PieceType::Bishop | PieceType::Knight => minor_count += 1,
+                    PieceType::King => (),
+                }
+            }
+        }
+        minor_count <= 1
+    }
 }
 
 fn main() {

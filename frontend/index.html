@@ -229,6 +229,10 @@
         statusEl.textContent = 'Checkmate';
       } else if (state.is_threefold_repetition) {
         statusEl.textContent = 'Draw by repetition';
+      } else if (state.is_fifty_move_draw) {
+        statusEl.textContent = 'Draw by fifty-move rule';
+      } else if (state.is_insufficient_material) {
+        statusEl.textContent = 'Draw by insufficient material';
       } else if (state.is_stalemate) {
         statusEl.textContent = 'Stalemate';
       } else if (state.in_check) {
@@ -270,6 +274,12 @@
         resultModal.style.display = 'flex';
       } else if (state.is_threefold_repetition) {
         resultMsg.textContent = 'Draw by repetition';
+        resultModal.style.display = 'flex';
+      } else if (state.is_fifty_move_draw) {
+        resultMsg.textContent = 'Draw by fifty-move rule';
+        resultModal.style.display = 'flex';
+      } else if (state.is_insufficient_material) {
+        resultMsg.textContent = 'Draw by insufficient material';
         resultModal.style.display = 'flex';
       } else if (state.is_stalemate) {
         resultMsg.textContent = 'Stalemate';

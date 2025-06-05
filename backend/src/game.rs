@@ -1,4 +1,5 @@
 use rand::{thread_rng, Rng};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum PieceType { 
@@ -40,9 +41,10 @@ pub struct GameState {
     turn: Color,
     castling_rights: CastlingRights,
     en_passant_square: Option<u8>,
-    halfmove_clock: u32, 
+    halfmove_clock: u32,
     fullmove_clock: u32,
     game_code: String,
+    repetition_counts: HashMap<String, usize>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -324,24 +326,44 @@ pub fn starting_board() -> Board {
 
 impl GameState {
     pub fn new() -> Self {
-        GameState {
+        let mut state = GameState {
             board: starting_board(),
             turn: Color::White,
-            castling_rights: CastlingRights {
-                white_kingside: true,
-                white_queenside: true,
-                black_kingside: true,
-                black_queenside: true,
-            },
+            castling_rights: CastlingRights { white_kingside: true, white_queenside: true, black_kingside: true, black_queenside: true },
             en_passant_square: None,
             halfmove_clock: 0,
             fullmove_clock: 1,
-            game_code: {
-                let mut rng = thread_rng();
-                format!("{:06}", rng.gen_range(0..1_000_000))
-            },
-        }
+            game_code: { let mut rng = thread_rng(); format!("{:06}", rng.gen_range(0..1_000_000)) },
+            repetition_counts: HashMap::new(),
+        };
+        // initial position counted
+        let key = state.position_key();
+        state.repetition_counts.insert(key, 1);
+        state
     }
+
+    /// compute a key for the current position (board, turn, castling, en_passant)
+    fn position_key(&self) -> String {
+        let mut map = serde_json::Map::new();
+        map.insert("board".to_string(), serde_json::to_value(&self.board).unwrap());
+        map.insert("turn".to_string(), serde_json::to_value(&self.turn).unwrap());
+        map.insert("castling_rights".to_string(), serde_json::to_value(&self.castling_rights).unwrap());
+        map.insert("en_passant_square".to_string(), serde_json::to_value(&self.en_passant_square).unwrap());
+        serde_json::Value::Object(map).to_string()
+    }
+
+    /// update repetition map after a move
+    fn update_repetition(&mut self) {
+        let key = self.position_key();
+        let count = self.repetition_counts.entry(key).or_insert(0);
+        *count += 1;
+    }
+
+    /// true if same position occurred three times
+    pub fn is_threefold_repetition(&self) -> bool {
+        self.repetition_counts.values().any(|&c| c >= 3)
+    }
+
     /// Returns the game code identifier
     pub fn game_code(&self) -> &str {
         &self.game_code
@@ -447,6 +469,8 @@ impl GameState {
         }
         // switch current player's turn
         self.turn = opposite_color(self.turn);
+        // track repetition
+        self.update_repetition();
     }
     /// Returns the type of the piece at a given board index, or None if empty
     pub fn piece_type_at(&self, idx: usize) -> Option<PieceType> {

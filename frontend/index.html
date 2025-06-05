@@ -227,6 +227,8 @@
       const statusEl = document.getElementById('status-value');
       if (state.is_checkmate) {
         statusEl.textContent = 'Checkmate';
+      } else if (state.is_threefold_repetition) {
+        statusEl.textContent = 'Draw by repetition';
       } else if (state.is_stalemate) {
         statusEl.textContent = 'Stalemate';
       } else if (state.in_check) {
@@ -265,6 +267,9 @@
       resultModal.style.display = 'none';
       if (state.is_checkmate) {
         resultMsg.textContent = 'Checkmate';
+        resultModal.style.display = 'flex';
+      } else if (state.is_threefold_repetition) {
+        resultMsg.textContent = 'Draw by repetition';
         resultModal.style.display = 'flex';
       } else if (state.is_stalemate) {
         resultMsg.textContent = 'Stalemate';

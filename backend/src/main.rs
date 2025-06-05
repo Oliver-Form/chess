@@ -153,6 +153,16 @@ async fn handle_connection(
                                                     "knight" => Some(PieceType::Knight),
                                                     _ => None,
                                                 });
+                                            // log the move
+                                            let piece_color_enum = gs.piece_color_at(from as usize).unwrap();
+                                            let piece_type_enum = gs.piece_type_at(from as usize).unwrap();
+                                            let from_file = (b'a' + (from % 8)) as char;
+                                            let from_rank = (from / 8 + 1).to_string();
+                                            let from_coord = format!("{}{}", from_file.to_ascii_uppercase(), from_rank);
+                                            let to_file = (b'a' + (dest % 8)) as char;
+                                            let to_rank = (dest / 8 + 1).to_string();
+                                            let to_coord = format!("{}{}", to_file.to_ascii_uppercase(), to_rank);
+                                            println!("{:?} {:?} moved from {} to {}", piece_color_enum, piece_type_enum, from_coord, to_coord);
                                             gs.move_piece(from, dest, promotion);
                                             // broadcast updated full state
                                             // serialize updated state with check/checkmate
@@ -185,3 +195,6 @@ async fn handle_connection(
     }
 
 }
+ // locking the fuck in and building like a full chess client would be awesome
+
+ // run docker container for free

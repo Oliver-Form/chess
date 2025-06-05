@@ -417,6 +417,10 @@ impl GameState {
         // switch current player's turn
         self.turn = opposite_color(self.turn);
     }
+    /// Returns the type of the piece at a given board index, or None if empty
+    pub fn piece_type_at(&self, idx: usize) -> Option<PieceType> {
+        self.board.get(idx).and_then(|&sq| sq.map(|piece| piece.piece_type))
+    }
     /// Returns the color of the piece at a given board index, or None if empty
     pub fn piece_color_at(&self, idx: usize) -> Option<Color> {
         self.board.get(idx).and_then(|&sq| sq.map(|piece| piece.color))

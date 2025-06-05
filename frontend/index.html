@@ -47,6 +47,7 @@
         <!-- Display assigned role (white, black, or observer) -->
         <div id="role-display" style="margin-bottom: 5px; font-weight: bold;">Role: <span id="role-value">—</span></div>
         <div id="status-display" style="margin-bottom: 5px; font-weight: bold;">Status: <span id="status-value">—</span></div>
+        <div id="turn-display" style="margin-bottom: 5px; font-weight: bold;">Turn: <span id="turn-value">—</span></div>
         <label for="game-code-input">Game code:</label>
         <input type="text" id="game-code-input" name="game-code" placeholder="Enter game code">
         <button id="join-game-btn">Join</button>
@@ -213,6 +214,12 @@
       } else {
         statusEl.textContent = '—';
       }
+      // update turn indicator
+      const turnEl = document.getElementById('turn-value');
+      if (turnEl) turnEl.textContent = (
+        String(state.turn).toLowerCase() === myRole
+      ) ? 'Your turn' : 'Opponent\'s turn';
+
        const board = state.board;
        const cells = document.querySelectorAll('.chess-board td');
        cells.forEach(cell => { cell.innerHTML = ''; });

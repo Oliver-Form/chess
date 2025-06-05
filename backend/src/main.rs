@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use futures_util::stream::SplitSink;
 use warp::ws::{Message as WsMessage, WebSocket};
+use std::env;
 
 mod game;
 use game::{GameState, legal_moves_for_piece_strict, Color, PieceType};
@@ -19,8 +20,10 @@ static CLIENT_ID_COUNTER: AtomicUsize = AtomicUsize::new(1);
 
 #[tokio::main]
 async fn main() {
-    // check for silent mode to suppress game logs
-    let silent = std::env::args().any(|arg| arg == "--silent");
+    // parse command-line flags
+    let args: Vec<String> = env::args().collect();
+    let silent = args.iter().any(|arg| arg == "--silent");
+    let verbose = args.iter().any(|arg| arg == "--verbose");
     // track connected clients
     let clients: Clients = Arc::new(TokioMutex::new(HashMap::new()));
     let (tx, _rx) = broadcast::channel(100);
@@ -31,11 +34,12 @@ async fn main() {
     let game_state_ws = game_state.clone();
     let clients_ws = clients.clone();  
     let silent_ws = silent;
+    let verbose_ws = verbose;
     let ws_route = warp::path("ws")
         .and(warp::ws())
-        .and(warp::any().map(move || (clients_ws.clone(), tx_ws.clone(), game_state_ws.clone(), silent_ws)))
-        .map(|ws: warp::ws::Ws, (clients, tx, game_state, silent)| {
-            ws.on_upgrade(move |socket| handle_connection(socket, clients, tx, game_state, silent))
+        .and(warp::any().map(move || (clients_ws.clone(), tx_ws.clone(), game_state_ws.clone(), silent_ws, verbose_ws)))
+        .map(|ws: warp::ws::Ws, (clients, tx, game_state, silent, verbose)| {
+            ws.on_upgrade(move |socket| handle_connection(socket, clients, tx, game_state, silent, verbose))
         });
     // Static file handler for frontend
     let static_route = warp::path::end()
@@ -52,11 +56,12 @@ async fn main() {
         .await;
 }
 async fn handle_connection(
-    ws: warp::ws::WebSocket,
+    ws: WebSocket,
     clients: Clients,
     tx: Arc<Mutex<broadcast::Sender<String>>>,
     game_state: Arc<Mutex<GameState>>,
     silent: bool,
+    verbose: bool,
 ) {
     // split into sink & stream, then store sink for later per-client pushes
     let (ws_tx, mut ws_rx) = ws.split();
@@ -89,8 +94,8 @@ async fn handle_connection(
     // send initial full game state to this client
     let init_state = {
         let gs = game_state.lock().unwrap();
-        // print the current game code for debugging if not silent
-        if !silent { println!("Game code: {}", gs.game_code()); }
+        // print the current game code for debugging if not silent or verbose
+        if verbose || !silent { println!("Game code: {}", gs.game_code()); }
         // serialize game state then add check/checkmate flags
         let mut val = serde_json::to_value(&*gs).expect("Serialize to Value");
         val["in_check"] = serde_json::Value::Bool(gs.is_in_check());
@@ -115,6 +120,7 @@ async fn handle_connection(
     while let Some(Ok(msg)) = ws_rx.next().await {
         if msg.is_text() {
             if let Ok(text) = msg.to_str() {
+                if verbose { println!("Received instruction from client: {}", text); }
                 if let Ok(value) = serde_json::from_str::<serde_json::Value>(text) {
                     // dispatch based on instruction type
                     match value.get("instruction_type").and_then(|v| v.as_str()) {
@@ -166,8 +172,8 @@ async fn handle_connection(
                                             let to_file = (b'a' + (dest % 8)) as char;
                                             let to_rank = (dest / 8 + 1).to_string();
                                             let to_coord = format!("{}{}", to_file.to_ascii_uppercase(), to_rank);
-                                            // log events if not silent
-                                            if !silent {
+                                            // log events if in verbose mode or not silent
+                                            if verbose || !silent {
                                                 println!("{:?} {:?} moved from {} to {}", piece_color_enum, piece_type_enum, from_coord, to_coord);
                                                 // detect and log capture
                                                 let captured_color_opt = gs.piece_color_at(dest as usize);
@@ -216,4 +222,3 @@ async fn handle_connection(
     }
 
 }
-

@@ -44,6 +44,9 @@
       <div style="position: absolute; top: 10px; left: 10px; z-index: 10;">
         <!-- Display the current game code -->
         <div id="game-code-display" style="margin-bottom: 5px; font-weight: bold;">Game Code: <span id="game-code-value">—</span></div>
+        <!-- Display assigned role (white, black, or observer) -->
+        <div id="role-display" style="margin-bottom: 5px; font-weight: bold;">Role: <span id="role-value">—</span></div>
+        <div id="status-display" style="margin-bottom: 5px; font-weight: bold;">Status: <span id="status-value">—</span></div>
         <label for="game-code-input">Game code:</label>
         <input type="text" id="game-code-input" name="game-code" placeholder="Enter game code">
         <button id="join-game-btn">Join</button>
@@ -152,21 +155,40 @@
                 </tr>
             </tbody>
         </table>
+        <!-- Promotion choice modal (hidden by default) -->
+        <div id="promotion-modal" style="display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border:1px solid #000; padding:10px; z-index:20;">
+          <div>Select promotion piece:</div>
+          <button data-piece="queen">Queen</button>
+          <button data-piece="rook">Rook</button>
+          <button data-piece="bishop">Bishop</button>
+          <button data-piece="knight">Knight</button>
+        </div>
         <script>
-
+    // track last selected from-square for moves
+    let lastMoveFrom = null;
+    // store full state for promotion logic
+    let currentState = null;
+    // current client role: 'white', 'black', or 'observer'
+    let myRole = null;
     function sendInstruction(instructionType, properties = {}) {
-      const message = { instruction_type: instructionType, ...properties };
-      ws.send(JSON.stringify(message));
-    }
+         const message = { instruction_type: instructionType, ...properties };
+         ws.send(JSON.stringify(message));
+     }
 
     const ws = new WebSocket('ws://127.0.0.1:8080/ws');
-    const files = ['a','b','c','d','e','f','g','h'];
     ws.onmessage = (event) => {
       let data;
       try {
         data = JSON.parse(event.data);
       } catch (e) {
         console.error('Failed to parse WS message:', event.data, e);
+        return;
+      }
+      // handle per-client instructions
+      if (data.instruction_type === 'assign_color') {
+        myRole = data.color;
+        const roleEl = document.getElementById('role-value');
+        if (roleEl) roleEl.textContent = myRole;
         return;
       }
       // highlight array-of-positions messages
@@ -176,10 +198,20 @@
       }
       // handle full game state messages
       const state = data;
+      currentState = state;
       // update displayed game code if provided
       if (state.game_code !== undefined) {
         const displayEl = document.getElementById('game-code-value');
         if (displayEl) displayEl.textContent = state.game_code || '—';
+      }
+      // update check/checkmate status
+      const statusEl = document.getElementById('status-value');
+      if (state.is_checkmate) {
+        statusEl.textContent = 'Checkmate';
+      } else if (state.in_check) {
+        statusEl.textContent = 'Check';
+      } else {
+        statusEl.textContent = '—';
       }
        const board = state.board;
        const cells = document.querySelectorAll('.chess-board td');
@@ -219,20 +251,46 @@
       });
     }
 
+    // promotion modal handlers
+    const promoModal = document.getElementById('promotion-modal');
+    promoModal.addEventListener('click', e => {
+      if (e.target.tagName === 'BUTTON') {
+        const piece = e.target.getAttribute('data-piece');
+        // send move with promotion
+        sendInstruction('request_move', { destination: promoModal.dataset.dest, promotion: piece });
+        promoModal.style.display = 'none';
+      }
+    });
+
     // send square index when clicked
     const cells = document.querySelectorAll('.chess-board td');
     cells.forEach((cell, idx) => {
       cell.addEventListener('click', () => {
+        if (myRole === 'observer') return;
         const rowDom = Math.floor(idx / 8);
         const colDom = idx % 8;
         const squareIndex = (7 - rowDom) * 8 + colDom;
         if (cell.querySelector('.highlight')) {
-          // perform move to highlighted destination
+          // check for promotion: pawn reaching last rank
+          const fromPiece = currentState.board[lastMoveFrom];
+          const isPawn = fromPiece && fromPiece.piece_type === 'Pawn';
+          const destRow = Math.floor(squareIndex / 8);
+          const lastRank = (currentState.turn === 'white' ? 7 : 0);
+          if (isPawn && destRow === lastRank) {
+            // show promotion choices
+            promoModal.dataset.dest = squareIndex;
+            promoModal.style.display = 'block';
+            return;
+          }
           sendInstruction('request_move', { destination: squareIndex.toString() });
-        } else {
-          // select piece and request legal moves
-          sendInstruction('get_legal_moves', { square_clicked: squareIndex.toString() });
+          return;
         }
+        const img = cell.querySelector('img');
+        if (!img) return;
+        const src = img.src.split('/').pop();
+        if (!src || !src.startsWith(myRole + '_')) return;
+        lastMoveFrom = squareIndex;
+        sendInstruction('get_legal_moves', { square_clicked: squareIndex.toString() });
       });
     });
   </script>

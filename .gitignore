@@ -5,4 +5,14 @@
 #
 # already existing elements were commented out
 
-#/target
+#/target/
+
+/target/
+**/*.rlib
+**/*.so
+**/*.dylib
+**/*.dll
+**/*.exe
+**/*.rs.bk
+# IDE and editor files
+.vscode/

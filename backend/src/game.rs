@@ -63,12 +63,25 @@ fn opposite_color(color: Color) -> Color {
 }
 
 fn is_square_attacked(state: &GameState, square: u8, attacker_color: Color) -> bool {
+    let target_x = square % 8;
+    let target_y = square / 8;
     for i in 0..64 {
         if let Some(attacker) = state.board[i] {
             if attacker.color == attacker_color {
-                let pseudo_moves = legal_moves_for_piece(state, i as u8); 
-                if pseudo_moves.contains(&square) {
-                    return true;
+                match attacker.piece_type {
+                    PieceType::King => {
+                        let x = i % 8;
+                        let y = i / 8;
+                        if (x as i8 - target_x as i8).abs() <= 1 && (y as i8 - target_y as i8).abs() <= 1 {
+                            return true;
+                        }
+                    }
+                    _ => {
+                        let pseudo_moves = legal_moves_for_piece(state, i as u8);
+                        if pseudo_moves.contains(&square) {
+                            return true;
+                        }
+                    }
                 }
             }
         }
@@ -195,11 +208,15 @@ pub fn legal_moves_for_piece(state: &GameState, pos: u8) -> Vec<u8> {
                 push(dx, dy, false, false);
             }
 
-            // castling
+            // castling with check restrictions
+            let opponent = opposite_color(color);
             if piece.color == Color::White && y == 0 && x == 4 {
                 if state.castling_rights.white_kingside
                     && state.board[5].is_none()
                     && state.board[6].is_none()
+                    && !is_square_attacked(state, 4, opponent)
+                    && !is_square_attacked(state, 5, opponent)
+                    && !is_square_attacked(state, 6, opponent)
                 {
                     moves.push(6);
                 }
@@ -207,6 +224,9 @@ pub fn legal_moves_for_piece(state: &GameState, pos: u8) -> Vec<u8> {
                     && state.board[1].is_none()
                     && state.board[2].is_none()
                     && state.board[3].is_none()
+                    && !is_square_attacked(state, 4, opponent)
+                    && !is_square_attacked(state, 3, opponent)
+                    && !is_square_attacked(state, 2, opponent)
                 {
                     moves.push(2);
                 }
@@ -216,6 +236,9 @@ pub fn legal_moves_for_piece(state: &GameState, pos: u8) -> Vec<u8> {
                 if state.castling_rights.black_kingside
                     && state.board[61].is_none()
                     && state.board[62].is_none()
+                    && !is_square_attacked(state, 60, opponent)
+                    && !is_square_attacked(state, 61, opponent)
+                    && !is_square_attacked(state, 62, opponent)
                 {
                     moves.push(62);
                 }
@@ -223,6 +246,9 @@ pub fn legal_moves_for_piece(state: &GameState, pos: u8) -> Vec<u8> {
                     && state.board[57].is_none()
                     && state.board[58].is_none()
                     && state.board[59].is_none()
+                    && !is_square_attacked(state, 60, opponent)
+                    && !is_square_attacked(state, 59, opponent)
+                    && !is_square_attacked(state, 58, opponent)
                 {
                     moves.push(58);
                 }

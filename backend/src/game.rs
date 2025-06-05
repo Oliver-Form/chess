@@ -377,6 +377,23 @@ impl GameState {
     pub fn move_piece(&mut self, from: u8, to: u8, promotion: Option<PieceType>) {
         let from_idx = from as usize;
         let to_idx = to as usize;
+        // determine if halfmove clock should reset
+        let mut reset_half = false;
+        if let Some(piece) = self.board[from_idx] {
+            if piece.piece_type == PieceType::Pawn {
+                reset_half = true;
+            }
+        }
+        // capture (normal or en-passant)
+        let dest_piece = self.board[to_idx];
+        if dest_piece.is_some() {
+            reset_half = true;
+        } else if let Some(piece) = self.board[from_idx] {
+            // en-passant capture
+            if piece.piece_type == PieceType::Pawn && self.en_passant_square == Some(to) {
+                reset_half = true;
+            }
+        }
         // handle castling: king moves two squares
         if let Some(piece) = self.board[from_idx] {
             if piece.piece_type == PieceType::King {
@@ -467,6 +484,16 @@ impl GameState {
                 }
             }
         }
+        // update halfmove clock
+        if reset_half {
+            self.halfmove_clock = 0;
+        } else {
+            self.halfmove_clock += 1;
+        }
+        // update fullmove clock: increment after Black moves
+        if self.turn == Color::Black {
+            self.fullmove_clock += 1;
+        }
         // switch current player's turn
         self.turn = opposite_color(self.turn);
         // track repetition
@@ -526,6 +553,11 @@ impl GameState {
             }
         }
         true
+    }
+
+    /// true if 50 moves (100 halfmoves) have occurred without pawn move or capture
+    pub fn is_fifty_move_draw(&self) -> bool {
+        self.halfmove_clock >= 100
     }
 }
 

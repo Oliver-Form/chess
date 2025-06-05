@@ -488,6 +488,21 @@ impl GameState {
         }
         true
     }
+
+    /// Returns true if the current player has no legal moves but is not in check (stalemate)
+    pub fn is_stalemate(&self) -> bool {
+        if self.is_in_check() {
+            return false;
+        }
+        for idx in 0..64u8 {
+            if let Some(piece) = self.board[idx as usize] {
+                if piece.color == self.turn && !legal_moves_for_piece_strict(self, idx).is_empty() {
+                    return false;
+                }
+            }
+        }
+        true
+    }
 }
 
 fn main() {

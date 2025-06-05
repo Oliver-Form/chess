@@ -175,6 +175,13 @@
           <button data-piece="bishop">Bishop</button>
           <button data-piece="knight">Knight</button>
         </div>
+        <!-- Game result modal -->
+        <div id="game-result-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:30; display:flex; justify-content:center; align-items:center;">
+          <div style="background:#fff; padding:20px; border-radius:5px; text-align:center;">
+            <div id="game-result-message" style="margin-bottom:10px; font-size:1.2em;"></div>
+            <button id="close-result-btn">OK</button>
+          </div>
+        </div>
         <script>
     // track last selected from-square for moves
     let lastMoveFrom = null;
@@ -220,6 +227,8 @@
       const statusEl = document.getElementById('status-value');
       if (state.is_checkmate) {
         statusEl.textContent = 'Checkmate';
+      } else if (state.is_stalemate) {
+        statusEl.textContent = 'Stalemate';
       } else if (state.in_check) {
         statusEl.textContent = 'Check';
       } else {
@@ -235,20 +244,32 @@
        const cells = document.querySelectorAll('.chess-board td');
        cells.forEach(cell => { cell.innerHTML = ''; });
        board.forEach((sq, i) => {
-        if (sq) {
-          const row = Math.floor(i / 8);
-          const col = i % 8;
-          const targetIndex = (7 - row) * 8 + col;
-          const cell = cells[targetIndex];
-          const img = document.createElement('img');
-          const color = sq.color.toLowerCase();
-          const type = sq.piece_type.toLowerCase();
-          const filename = `${color}_${type}.png`;
-          console.log('Loading piece sprite:', filename);
-          img.src = `../static/${filename}`;
-          cell.appendChild(img);
-        }
-      });
+         if (sq) {
+           const row = Math.floor(i / 8);
+           const col = i % 8;
+           const targetIndex = (7 - row) * 8 + col;
+           const cell = cells[targetIndex];
+           const img = document.createElement('img');
+           const color = sq.color.toLowerCase();
+           const type = sq.piece_type.toLowerCase();
+           const filename = `${color}_${type}.png`;
+           console.log('Loading piece sprite:', filename);
+           img.src = `../static/${filename}`;
+           cell.appendChild(img);
+         }
+       });
+      // show result modal if game over
+      const resultModal = document.getElementById('game-result-modal');
+      const resultMsg = document.getElementById('game-result-message');
+      // hide result modal by default
+      resultModal.style.display = 'none';
+      if (state.is_checkmate) {
+        resultMsg.textContent = 'Checkmate';
+        resultModal.style.display = 'flex';
+      } else if (state.is_stalemate) {
+        resultMsg.textContent = 'Stalemate';
+        resultModal.style.display = 'flex';
+      }
     };
 
     function highlightPositions(positions) {
@@ -313,6 +334,12 @@
         sendInstruction('get_legal_moves', { square_clicked: squareIndex.toString() });
       });
     });
+    // add close handler for result modal
+    const closeBtn = document.getElementById('close-result-btn');
+    closeBtn.addEventListener('click', () => {
+      document.getElementById('game-result-modal').style.display = 'none';
+    });
   </script>
     </body>
 </html>
+

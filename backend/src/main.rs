@@ -100,6 +100,7 @@ async fn handle_connection(
         let mut val = serde_json::to_value(&*gs).expect("Serialize to Value");
         val["in_check"] = serde_json::Value::Bool(gs.is_in_check());
         val["is_checkmate"] = serde_json::Value::Bool(gs.is_checkmate());
+        val["is_stalemate"] = serde_json::Value::Bool(gs.is_stalemate());
         serde_json::to_string(&val).expect("Failed to serialize initial game state")
     };
     tx.lock().unwrap().send(init_state).expect("Failed to broadcast initial game state");
@@ -196,6 +197,7 @@ async fn handle_connection(
                                             let mut val = serde_json::to_value(&*gs).expect("Serialize to Value");
                                             val["in_check"] = serde_json::Value::Bool(gs.is_in_check());
                                             val["is_checkmate"] = serde_json::Value::Bool(gs.is_checkmate());
+                                            val["is_stalemate"] = serde_json::Value::Bool(gs.is_stalemate());
                                             let full = serde_json::to_string(&val)
                                                 .expect("Failed to serialize game state");
                                             tx.lock().unwrap().send(full).unwrap();
@@ -222,4 +224,4 @@ async fn handle_connection(
     }
 
 }
-// 
+//

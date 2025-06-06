@@ -241,6 +241,27 @@ async fn handle_connection(
                                 }
                             }
                         }
+                        Some("rematch") => {
+                            // reset game state for this room
+                            let mut rooms = game_rooms.lock().await;
+                            if let Some(room) = rooms.get_mut(&my_game_id) {
+                                // replace with new state
+                                *room.game_state.lock().await = GameState::new();
+                                // broadcast refreshed initial state
+                                let gs = room.game_state.lock().await;
+                                let mut val = serde_json::to_value(&*gs).unwrap();
+                                val["in_check"] = serde_json::Value::Bool(gs.is_in_check());
+                                val["is_checkmate"] = serde_json::Value::Bool(gs.is_checkmate());
+                                val["is_stalemate"] = serde_json::Value::Bool(gs.is_stalemate());
+                                val["is_threefold_repetition"] = serde_json::Value::Bool(gs.is_threefold_repetition());
+                                val["is_fifty_move_draw"] = serde_json::Value::Bool(gs.is_fifty_move_draw());
+                                val["is_insufficient_material"] = serde_json::Value::Bool(gs.is_insufficient_material());
+                                let full = serde_json::to_string(&val).unwrap();
+                                let _ = room.tx.send(full);
+                                // clear pending move
+                                last_move_from = None;
+                            }
+                        }
                         _ => {}
                     }
                 }

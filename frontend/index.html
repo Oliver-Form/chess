@@ -176,10 +176,11 @@
           <button data-piece="knight">Knight</button>
         </div>
         <!-- Game result modal -->
-        <div id="game-result-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:30; display:flex; justify-content:center; align-items:center;">
+        <div id="game-result-modal" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:30; display:none; justify-content:center; align-items:center;">
           <div style="background:#fff; padding:20px; border-radius:5px; text-align:center;">
             <div id="game-result-message" style="margin-bottom:10px; font-size:1.2em;"></div>
             <button id="close-result-btn">OK</button>
+            <button id="rematch-btn" style="margin-left:10px;">Rematch</button>
           </div>
         </div>
         <script>
@@ -260,7 +261,7 @@
            const type = sq.piece_type.toLowerCase();
            const filename = `${color}_${type}.png`;
            console.log('Loading piece sprite:', filename);
-           img.src = `../static/${filename}`;
+           img.src = `../frontend/static/${filename}`;
            cell.appendChild(img);
          }
        });
@@ -352,6 +353,14 @@
     // add close handler for result modal
     const closeBtn = document.getElementById('close-result-btn');
     closeBtn.addEventListener('click', () => {
+      document.getElementById('game-result-modal').style.display = 'none';
+    });
+    // add rematch handler to reset game state in-place
+    const rematchBtn = document.getElementById('rematch-btn');
+    rematchBtn.addEventListener('click', () => {
+      // send rematch instruction to server
+      sendInstruction('rematch');
+      // hide result modal
       document.getElementById('game-result-modal').style.display = 'none';
     });
   </script>

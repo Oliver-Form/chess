@@ -1,9 +1,7 @@
 use futures_util::{StreamExt, SinkExt};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tokio::sync::{broadcast, Mutex as TokioMutex};
 use warp::Filter;
-use warp::fs::File;
-use std::convert::Infallible;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use futures_util::stream::SplitSink;
@@ -17,6 +15,15 @@ use serde_json::json;
 
 type Clients = Arc<TokioMutex<HashMap<usize, Arc<TokioMutex<SplitSink<WebSocket, WsMessage>>>>>>;
 static CLIENT_ID_COUNTER: AtomicUsize = AtomicUsize::new(1);
+static GAME_ID_COUNTER: AtomicUsize = AtomicUsize::new(1);
+
+struct GameRoom {
+    game_state: Arc<TokioMutex<GameState>>,
+    tx: broadcast::Sender<String>,
+    clients: HashMap<usize, Arc<TokioMutex<SplitSink<WebSocket, WsMessage>>>>,
+}
+
+type GameRooms = Arc<TokioMutex<HashMap<usize, GameRoom>>>;
 
 #[tokio::main]
 async fn main() {
@@ -24,22 +31,17 @@ async fn main() {
     let args: Vec<String> = env::args().collect();
     let silent = args.iter().any(|arg| arg == "--silent");
     let verbose = args.iter().any(|arg| arg == "--verbose");
-    // track connected clients
-    let clients: Clients = Arc::new(TokioMutex::new(HashMap::new()));
-    let (tx, _rx) = broadcast::channel(100);
-    let tx = Arc::new(Mutex::new(tx));
-    let tx_ws = tx.clone();
-    // Shared game state for all connections
-    let game_state = Arc::new(Mutex::new(GameState::new()));
-    let game_state_ws = game_state.clone();
-    let clients_ws = clients.clone();  
     let silent_ws = silent;
     let verbose_ws = verbose;
+    // track multiple games
+    let game_rooms: GameRooms = Arc::new(TokioMutex::new(HashMap::new()));
+
+    let game_rooms_ws = game_rooms.clone();
     let ws_route = warp::path("ws")
         .and(warp::ws())
-        .and(warp::any().map(move || (clients_ws.clone(), tx_ws.clone(), game_state_ws.clone(), silent_ws, verbose_ws)))
-        .map(|ws: warp::ws::Ws, (clients, tx, game_state, silent, verbose)| {
-            ws.on_upgrade(move |socket| handle_connection(socket, clients, tx, game_state, silent, verbose))
+        .and(warp::any().map(move || (game_rooms_ws.clone(), silent_ws, verbose_ws)))
+        .map(|ws: warp::ws::Ws, (game_rooms, silent, verbose)| {
+            ws.on_upgrade(move |socket| handle_connection(socket, game_rooms, silent, verbose))
         });
     // Static file handler for frontend
     let static_route = warp::path::end()
@@ -57,9 +59,7 @@ async fn main() {
 }
 async fn handle_connection(
     ws: WebSocket,
-    clients: Clients,
-    tx: Arc<Mutex<broadcast::Sender<String>>>,
-    game_state: Arc<Mutex<GameState>>,
+    game_rooms: GameRooms,
     silent: bool,
     verbose: bool,
 ) {
@@ -68,20 +68,55 @@ async fn handle_connection(
     let ws_tx = Arc::new(TokioMutex::new(ws_tx));
 
     let client_id = CLIENT_ID_COUNTER.fetch_add(1, Ordering::SeqCst);
-    // register this client's sink
-    {
-        let mut clients_guard = clients.lock().await;
-        clients_guard.insert(client_id, ws_tx.clone());
-    }
-    let mut rx = tx.lock().unwrap().subscribe();
-    // determine and send role assignment
-    let role_str = {
-        let clients_guard = clients.lock().await;
-        match clients_guard.len() {
-            1 => "white",
-            2 => "black",
-            _ => "observer",
+    // determine or create a game room and remember its ID
+    let my_game_id: usize = {
+        let mut rooms = game_rooms.lock().await;
+        // pick existing room or create new
+        let game_id = if let Some((&id, _)) = rooms.iter().find(|(_, r)| r.clients.len() < 2) {
+            id
+        } else {
+            let new_id = GAME_ID_COUNTER.fetch_add(1, Ordering::SeqCst);
+            let new_state = Arc::new(TokioMutex::new(GameState::new()));
+            let (tx, _rx) = broadcast::channel::<String>(100);
+            rooms.insert(new_id, GameRoom { game_state: new_state.clone(), tx, clients: HashMap::new() });
+            new_id
+        };
+        // register this client
+        let room = rooms.get_mut(&game_id).unwrap();
+        room.clients.insert(client_id, ws_tx.clone());
+        // send initial state
+        let gs_arc = room.game_state.clone();
+        let init = {
+            let gs = gs_arc.lock().await;
+            if verbose || !silent { println!("Game code: {}", gs.game_code()); }
+            let mut val = serde_json::to_value(&*gs).unwrap();
+            val["in_check"] = serde_json::Value::Bool(gs.is_in_check());
+            val["is_checkmate"] = serde_json::Value::Bool(gs.is_checkmate());
+            val["is_stalemate"] = serde_json::Value::Bool(gs.is_stalemate());
+            val["is_threefold_repetition"] = serde_json::Value::Bool(gs.is_threefold_repetition());
+            val["is_fifty_move_draw"] = serde_json::Value::Bool(gs.is_fifty_move_draw());
+            val["is_insufficient_material"] = serde_json::Value::Bool(gs.is_insufficient_material());
+            serde_json::to_string(&val).unwrap()
+        };
+        // send initial state directly to this client so it renders immediately
+        {
+            let mut sink = ws_tx.lock().await;
+            let _ = sink.send(WsMessage::text(init.clone())).await;
         }
+        // also broadcast to other subscribers (e.g., opponent)
+        let _ = room.tx.send(init);
+        game_id
+    };
+    // subscribe to this game room's broadcast channel
+    let mut rx = {
+        let rooms = game_rooms.lock().await;
+        rooms.get(&my_game_id).unwrap().tx.subscribe()
+    };
+    // determine and send role assignment (only white for first, black for second)
+    let role_str = {
+        let rooms = game_rooms.lock().await;
+        let count = rooms.get(&my_game_id).unwrap().clients.len();
+        if count == 1 { "white" } else { "black" }
     };
     let assign_msg = serde_json::to_string(&json!({
         "instruction_type": "assign_color",
@@ -91,22 +126,6 @@ async fn handle_connection(
         let mut sink = ws_tx.lock().await;
         let _ = sink.send(WsMessage::text(assign_msg)).await;
     }
-    // send initial full game state to this client
-    let init_state = {
-        let gs = game_state.lock().unwrap();
-        // print the current game code for debugging if not silent or verbose
-        if verbose || !silent { println!("Game code: {}", gs.game_code()); }
-        // serialize game state then add check/checkmate flags
-        let mut val = serde_json::to_value(&*gs).expect("Serialize to Value");
-        val["in_check"] = serde_json::Value::Bool(gs.is_in_check());
-        val["is_checkmate"] = serde_json::Value::Bool(gs.is_checkmate());
-        val["is_stalemate"] = serde_json::Value::Bool(gs.is_stalemate());
-        val["is_threefold_repetition"] = serde_json::Value::Bool(gs.is_threefold_repetition());
-        val["is_fifty_move_draw"] = serde_json::Value::Bool(gs.is_fifty_move_draw());
-        val["is_insufficient_material"] = serde_json::Value::Bool(gs.is_insufficient_material());
-        serde_json::to_string(&val).expect("Failed to serialize initial game state")
-    };
-    tx.lock().unwrap().send(init_state).expect("Failed to broadcast initial game state");
         
     // clone sink for background game state broadcasts
     let broadcast_tx = ws_tx.clone();
@@ -129,20 +148,20 @@ async fn handle_connection(
                     // dispatch based on instruction type
                     match value.get("instruction_type").and_then(|v| v.as_str()) {
                         Some("get_legal_moves") => {
-                            // observers cannot see legal moves
-                            if my_role == "observer" { break; }
-                            if let Some(s) = value.get("square_clicked").and_then(|v| v.as_str()) {
-                                if let Ok(idx) = s.parse::<u8>() {
+                             if let Some(s) = value.get("square_clicked").and_then(|v| v.as_str()) {
+                                 if let Ok(idx) = s.parse::<u8>() {
                                     // remember source for next move
                                     last_move_from = Some(idx);
                                     // computer legal move targets
                                     let positions = {
-                                        let gs = game_state.lock().unwrap();
+                                        let gs_arc = {
+                                            let rooms = game_rooms.lock().await;
+                                            rooms.get(&my_game_id).unwrap().game_state.clone()
+                                        };
+                                        let gs = gs_arc.lock().await;
                                         legal_moves_for_piece_strict(&gs, idx)
                                     };
-                                    let json = serde_json::to_string(&positions)
-                                        .expect("Failed to serialize positions");
-                                    // send highlights only to this client
+                                    let json = serde_json::to_string(&positions).unwrap();
                                     let mut sink = ws_tx.lock().await;
                                     let _ = sink.send(WsMessage::text(json)).await;
                                 }
@@ -153,7 +172,12 @@ async fn handle_connection(
                                 if let Ok(dest) = dest_s.parse::<u8>() {
                                     if let Some(from) = last_move_from {
                                         // apply the move on game state
-                                        let mut gs = game_state.lock().unwrap();
+                                        // clone game state Arc and lock
+                                        let gs_arc = {
+                                            let rooms = game_rooms.lock().await;
+                                            rooms.get(&my_game_id).unwrap().game_state.clone()
+                                        };
+                                        let mut gs = gs_arc.lock().await;
                                         if (my_role == "white" && gs.piece_color_at(from as usize) == Some(Color::White))
                                           || (my_role == "black" && gs.piece_color_at(from as usize) == Some(Color::Black))
                                         {
@@ -197,16 +221,16 @@ async fn handle_connection(
                                             gs.move_piece(from, dest, promotion);
                                             // broadcast updated full state
                                             // serialize updated state with check/checkmate
-                                            let mut val = serde_json::to_value(&*gs).expect("Serialize to Value");
+                                            let mut val = serde_json::to_value(&*gs).unwrap();
                                             val["in_check"] = serde_json::Value::Bool(gs.is_in_check());
                                             val["is_checkmate"] = serde_json::Value::Bool(gs.is_checkmate());
                                             val["is_stalemate"] = serde_json::Value::Bool(gs.is_stalemate());
                                             val["is_threefold_repetition"] = serde_json::Value::Bool(gs.is_threefold_repetition());
                                             val["is_fifty_move_draw"] = serde_json::Value::Bool(gs.is_fifty_move_draw());
                                             val["is_insufficient_material"] = serde_json::Value::Bool(gs.is_insufficient_material());
-                                            let full = serde_json::to_string(&val)
-                                                .expect("Failed to serialize game state");
-                                            tx.lock().unwrap().send(full).unwrap();
+                                            let full = serde_json::to_string(&val).unwrap();
+                                            let rooms = game_rooms.lock().await;
+                                            rooms.get(&my_game_id).unwrap().tx.send(full).unwrap();
                                             last_move_from = None;
                                         } else {
                                             eprintln!("Illegal move by {} on {}", my_role, from);
@@ -225,9 +249,10 @@ async fn handle_connection(
     }
     // unregister client on disconnect
     {
-        let mut clients_guard = clients.lock().await;
-        clients_guard.remove(&client_id);
+        let mut rooms = game_rooms.lock().await;
+        if let Some(room) = rooms.get_mut(&my_game_id) {
+            room.clients.remove(&client_id);
+        }
     }
-
 }
-//
+

@@ -51,10 +51,15 @@ async fn main() {
         .and(warp::fs::dir("../frontend"));
     // Combine routes: WebSocket, index.html, and assets
     let routes = ws_route.or(static_route).or(assets_route);
-    println!("Server listening on 127.0.0.1:8080");
+    // Determine port from env or default to 8080
+    let port: u16 = std::env::var("PORT")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(8080);
+    println!("Server listening on 0.0.0.0:{}", port);
     // Start the server
     warp::serve(routes)
-        .run(([0, 0, 0, 0], 8080))
+        .run(([0, 0, 0, 0], port))
         .await;
 }
 async fn handle_connection(

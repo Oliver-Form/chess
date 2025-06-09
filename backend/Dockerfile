@@ -1,28 +1,21 @@
-# Stage 1: build the Rust binary
-FROM rust:1.71 AS builder
+# Stage 1: build a static, musl-linked binary
+-FROM rust:nightly AS builder
++FROM rust:nightly-slim AS builder
 WORKDIR /usr/src/app
-# copy only manifest, fetch deps
-COPY Cargo.toml Cargo.lock ./
-RUN mkdir src && echo "fn main(){}" > src/main.rs \
-    && cargo fetch
+RUN rustup target add x86_64-unknown-linux-musl
+# Copy only manifest files from the backend subfolder
+COPY backend/Cargo.toml backend/Cargo.lock ./
+# Fetch dependencies with a dummy main
+RUN mkdir src && echo "fn main(){}" > src/main.rs && cargo fetch
+# Pull in actual source code
+COPY backend/src ./src
+RUN cargo build --release --target x86_64-unknown-linux-musl
 
-# copy your code and build in release
-COPY . .
-RUN cargo build --release
-
-# Stage 2: skinny runtime image
-FROM debian:buster-slim
-RUN apt-get update \
-  && apt-get install -y ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+# Stage 2: distroless runtime
+FROM gcr.io/distroless/cc
 WORKDIR /app
-# copy the compiled binary
-COPY --from=builder /usr/src/app/target/release/backend .
-# copy your frontend & static folders so Warp can serve them
-COPY ../frontend ./frontend
-COPY ../static  ./static
-
+COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-musl/release/backend .
+COPY frontend ./frontend
+COPY static  ./static
 EXPOSE 8080
 CMD ["./backend"]
-
-# 

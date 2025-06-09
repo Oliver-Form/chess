@@ -1,0 +1,12 @@
+# ignore build artifacts and local config
+**/target
+**/Cargo.lock
+**/Cargo.toml
+**/*.rs.bk
+# ignore IDE files
+.vscode/
+.idea/
+# ignore local environment files
+.env
+# ignore node artifacts (if any frontend build)
+frontend/node_modules

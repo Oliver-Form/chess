@@ -1,0 +1,15 @@
+{
+    # Disable telemetry and HTTPS (for local/insecure deployments)
+    telemetry off
+    auto_https off
+}
+
+:80
+
+# Proxy WebSocket and API traffic to the Rust warp server
+reverse_proxy /ws* localhost:8080
+reverse_proxy /api* localhost:8080
+
+# Serve frontend static files
+root * /srv/frontend
+file_server

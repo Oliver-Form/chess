@@ -36,3 +36,4 @@ Write-Host "   5. Take turns making moves between the two windows" -ForegroundCo
 Write-Host ""
 Write-Host "💡 Server is running in background (PID: $($process.Id))" -ForegroundColor Cyan
 Write-Host "💡 To stop the server later, run: Stop-Process -Id $($process.Id)" -ForegroundColor Cyan
+Write-Host "In your browser two tabs will have opened, each one will be a different colour in the chess game."

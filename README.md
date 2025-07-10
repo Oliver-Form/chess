@@ -69,17 +69,17 @@ curl -L https://github.com/Oliver-Form/chess/releases/latest/download/chess-maco
 
 **Linux:**
 ```bash
-curl -L https://raw.githubusercontent.com/Oliver-Form/chess/main/scripts/run-linux.sh -o run-linux.sh && chmod +x run-linux.sh && ./run-linux.sh
+curl -L https://raw.githubusercontent.com/Oliver-Form/chess/refs/heads/master/scripts/run-linux.sh -o run-linux.sh && chmod +x run-linux.sh && ./run-linux.sh
 ```
 
 **Windows (PowerShell):**
 ```powershell
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Oliver-Form/chess/main/scripts/run-windows.ps1" -OutFile "run-windows.ps1"; .\run-windows.ps1
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Oliver-Form/chess/refs/heads/master/scripts/run-windows.ps1" -OutFile "run-windows.ps1"; .\run-windows.ps1
 ```
 
 **macOS:**
 ```bash
-curl -L https://raw.githubusercontent.com/Oliver-Form/chess/main/scripts/run-macos.sh -o run-macos.sh && chmod +x run-macos.sh && ./run-macos.sh
+curl -L https://raw.githubusercontent.com/Oliver-Form/chess/refs/heads/master/scripts/run-macos.sh -o run-macos.sh && chmod +x run-macos.sh && ./run-macos.sh
 ```
 
 These scripts will automatically download the correct binary for your platform, start the server, clone the repo for static assets, and open two browser windows for local multiplayer testing!

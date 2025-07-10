@@ -21,9 +21,9 @@ Start-Sleep 3
 
 # Open two browser windows for multiplayer testing
 Write-Host "🎮 Opening chess game in browser..." -ForegroundColor Yellow
-Start-Process "chrome.exe" "index.html"
+Start-Process "chrome.exe" "--new-window --user-data-dir=`"$env:TEMP\chrome_instance1`" index.html"
 Start-Sleep 1
-Start-Process "chrome.exe" "index.html"
+Start-Process "chrome.exe" "--new-window --user-data-dir=`"$env:TEMP\chrome_instance2`" index.html"
 
 Write-Host "✅ Setup complete! Two browser windows should open for multiplayer testing." -ForegroundColor Green
 Write-Host "💡 To stop the server later, run: Stop-Process -Id $($process.Id)" -ForegroundColor Cyan

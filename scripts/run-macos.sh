@@ -35,9 +35,9 @@ sleep 3
 
 # Open two browser windows for multiplayer testing
 echo "🎮 Opening chess game in Safari..."
-open -a Safari index.html
+open -n -a Safari index.html
 sleep 1
-open -a Safari index.html
+open -n -a Safari index.html
 
 echo "✅ Setup complete! Two Safari windows should open for multiplayer testing."
 echo "💡 Server is running in background (PID: $SERVER_PID)"

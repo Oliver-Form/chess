@@ -25,9 +25,9 @@ sleep 3
 
 # Open two browser windows for multiplayer testing
 echo "🎮 Opening chess game in browser..."
-firefox index.html &
+firefox --new-instance index.html &
 sleep 1
-firefox index.html &
+firefox --new-instance index.html &
 
 echo "✅ Setup complete! Two browser windows should open for multiplayer testing."
 echo "💡 Server is running in background (PID: $SERVER_PID)"

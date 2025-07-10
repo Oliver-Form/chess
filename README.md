@@ -39,3 +39,48 @@
 - **WebSocket Communication** - Real-time bidirectional communication between players
 - **Rematch Support** - Start a new game instantly after finishing
 
+---
+
+### 🚀 Quick Start
+
+#### Download and Run Server
+
+**Linux:**
+```bash
+curl -L https://github.com/Oliver-Form/chess/releases/latest/download/chess-linux-x86_64 -o chess && chmod +x chess && ./chess
+```
+
+**Windows (PowerShell):**
+```powershell
+Invoke-WebRequest -Uri "https://github.com/Oliver-Form/chess/releases/latest/download/chess-windows-x86_64.exe" -OutFile "chess.exe"; .\chess.exe
+```
+
+**macOS (Intel):**
+```bash
+curl -L https://github.com/Oliver-Form/chess/releases/latest/download/chess-macos-x86_64 -o chess && chmod +x chess && ./chess
+```
+
+**macOS (Apple Silicon):**
+```bash
+curl -L https://github.com/Oliver-Form/chess/releases/latest/download/chess-macos-aarch64 -o chess && chmod +x chess && ./chess
+```
+
+#### Setup Frontend (if running locally)
+
+**Linux:**
+```bash
+curl -L https://raw.githubusercontent.com/Oliver-Form/chess/main/scripts/run-linux.sh -o run-linux.sh && chmod +x run-linux.sh && ./run-linux.sh
+```
+
+**Windows (PowerShell):**
+```powershell
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Oliver-Form/chess/main/scripts/run-windows.ps1" -OutFile "run-windows.ps1"; .\run-windows.ps1
+```
+
+**macOS:**
+```bash
+curl -L https://raw.githubusercontent.com/Oliver-Form/chess/main/scripts/run-macos.sh -o run-macos.sh && chmod +x run-macos.sh && ./run-macos.sh
+```
+
+These scripts will automatically download the correct binary for your platform, start the server, clone the repo for static assets, and open two browser windows for local multiplayer testing!
+

@@ -43,29 +43,7 @@
 
 ### 🚀 Quick Start
 
-#### Download and Run Server
-
-**Linux:**
-```bash
-curl -L https://github.com/Oliver-Form/chess/releases/latest/download/chess-linux-x86_64 -o chess && chmod +x chess && ./chess
-```
-
-**Windows (PowerShell):**
-```powershell
-Invoke-WebRequest -Uri "https://github.com/Oliver-Form/chess/releases/latest/download/chess-windows-x86_64.exe" -OutFile "chess.exe"; .\chess.exe
-```
-
-**macOS (Intel):**
-```bash
-curl -L https://github.com/Oliver-Form/chess/releases/latest/download/chess-macos-x86_64 -o chess && chmod +x chess && ./chess
-```
-
-**macOS (Apple Silicon):**
-```bash
-curl -L https://github.com/Oliver-Form/chess/releases/latest/download/chess-macos-aarch64 -o chess && chmod +x chess && ./chess
-```
-
-#### Setup Frontend (if running locally)
+#### Install Scripts
 
 **Linux:**
 ```bash

@@ -39,5 +39,3 @@
 - **WebSocket Communication** - Real-time bidirectional communication between players
 - **Rematch Support** - Start a new game instantly after finishing
 
-
-

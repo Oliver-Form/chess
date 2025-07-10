@@ -7,6 +7,10 @@ on:
   pull_request:
     branches: [ main, master ]
 
+permissions:
+  contents: write
+  packages: write
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -104,13 +108,12 @@ jobs:
       run: echo "date=$(date +'%Y-%m-%d-%H-%M')" >> $GITHUB_OUTPUT
 
     - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
+      uses: softprops/action-gh-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: release-${{ steps.date.outputs.date }}
-        release_name: Automated Release ${{ steps.date.outputs.date }}
+        name: Automated Release ${{ steps.date.outputs.date }}
         body: |
           Automated release created from latest commit.
           
@@ -124,43 +127,8 @@ jobs:
           - **macOS (Apple Silicon)**: chess-macos-aarch64
         draft: false
         prerelease: false
-
-    - name: Upload Linux Binary
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: artifacts/chess-linux-x86_64/chess-linux-x86_64
-        asset_name: chess-linux-x86_64
-        asset_content_type: application/octet-stream
-
-    - name: Upload Windows Binary
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: artifacts/chess-windows-x86_64.exe/chess-windows-x86_64.exe
-        asset_name: chess-windows-x86_64.exe
-        asset_content_type: application/octet-stream
-
-    - name: Upload macOS Intel Binary
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: artifacts/chess-macos-x86_64/chess-macos-x86_64
-        asset_name: chess-macos-x86_64
-        asset_content_type: application/octet-stream
-
-    - name: Upload macOS Apple Silicon Binary
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: artifacts/chess-macos-aarch64/chess-macos-aarch64
-        asset_name: chess-macos-aarch64
-        asset_content_type: application/octet-stream
+        files: |
+          artifacts/chess-linux-x86_64/chess-linux-x86_64
+          artifacts/chess-windows-x86_64.exe/chess-windows-x86_64.exe
+          artifacts/chess-macos-x86_64/chess-macos-x86_64
+          artifacts/chess-macos-aarch64/chess-macos-aarch64

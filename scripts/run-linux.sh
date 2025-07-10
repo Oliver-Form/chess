@@ -25,11 +25,16 @@ sleep 3
 
 # Open two browser windows for multiplayer testing
 echo "🎮 Opening chess game in browser..."
-firefox --new-instance index.html &
-sleep 1
-firefox --new-instance index.html &
+# Create temporary profile directories
+PROFILE1=$(mktemp -d)
+PROFILE2=$(mktemp -d)
+
+firefox --profile "$PROFILE1" --no-remote index.html &
+sleep 2
+firefox --profile "$PROFILE2" --no-remote index.html &
 
 echo "✅ Setup complete! Two browser windows should open for multiplayer testing."
 echo "💡 Server is running in background (PID: $SERVER_PID)"
 echo "💡 Server output is logged to: chess-server.log"
 echo "💡 To stop the server later, run: kill $SERVER_PID"
+echo "💡 Temporary Firefox profiles: $PROFILE1 and $PROFILE2"

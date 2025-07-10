@@ -40,6 +40,14 @@ sleep 1
 open -n -a Safari index.html
 
 echo "✅ Setup complete! Two Safari windows should open for multiplayer testing."
+echo ""
+echo "🎯 HOW TO TEST MULTIPLAYER:"
+echo "   1. Two Safari windows should have opened automatically"
+echo "   2. Each window represents a different player"
+echo "   3. One window will be WHITE, the other BLACK"
+echo "   4. Click on pieces in one window to move, watch the other window update!"
+echo "   5. Take turns making moves between the two windows"
+echo ""
 echo "💡 Server is running in background (PID: $SERVER_PID)"
 echo "💡 Server output is logged to: chess-server.log"
 echo "💡 To stop the server later, run: kill $SERVER_PID"

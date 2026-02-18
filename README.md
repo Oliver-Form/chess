@@ -18,7 +18,7 @@
 
 ---
 
-### 📱 Screenshots
+### Screenshots
 
 <p align="center">
   <img src="chess.png" alt="Chess Game Screenshot" width="45%">
@@ -27,7 +27,7 @@
 
 ---
 
-### ✨ Features
+### Features
 
 - **Real-time Multiplayer** - Play against opponents from around the world with instant move updates
 - **Automatic Matchmaking** - Get paired with another player automatically when you join
@@ -41,7 +41,7 @@
 
 ---
 
-### 🚀 Quick Start
+### Quick Start
 
 #### Install Scripts
 
